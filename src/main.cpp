@@ -7,6 +7,7 @@
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
 #include <algorithm>
+#include <bitset>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -16,9 +17,77 @@
 #include <vector>
 
 #include "solarized.hpp"
+#include "square_rectangular_maze.pb.h"
 
 namespace outcome = OUTCOME_V2_NAMESPACE;
-namespace game {
+namespace maze_walker {
+
+using CellWalls = SquareRectangularMazeData::CellWalls;
+
+class SquareRectangularMaze {
+  SquareRectangularMazeData data_;
+
+ public:
+  static outcome::result<SquareRectangularMaze> CreateRandomMaze(int num_rows,
+                                                                 int num_cols);
+
+  int num_rows() const { return data_.num_rows(); }
+  int num_cols() const { return data_.num_cols(); }
+
+  class ValidPosition {
+    int row_;
+    int col_;
+
+    ValidPosition(int row, int col) : row_{row}, col_{col} {}
+    friend class SquareRectangularMaze;
+
+   public:
+    int row() const { return row_; }
+    int col() const { return col_; }
+  };
+
+  outcome::result<ValidPosition> MakePosition(int row, int col) {
+    if (row < 0 || row >= num_rows()) {
+      return outcome::failure(std::errc::invalid_argument);
+    }
+
+    if (col < 0 || col >= num_cols()) {
+      return outcome::failure(std::errc::invalid_argument);
+    }
+
+    return outcome::success(ValidPosition{row, col});
+  }
+
+  bool has_wall_north(const ValidPosition& pos) const {
+    return data_.walls(pos2idx(pos)).north();
+  }
+
+  bool has_wall_east(const ValidPosition& pos) const {
+    return data_.walls(pos2idx(pos)).east();
+  }
+
+  bool has_wall_south(const ValidPosition& pos) const {
+    return data_.walls(pos2idx(pos)).south();
+  }
+
+  bool has_wall_west(const ValidPosition& pos) const {
+    return data_.walls(pos2idx(pos)).west();
+  }
+
+  std::bitset<4> walls_set(const ValidPosition& pos) const {
+    std::bitset<4> walls;
+    walls[0] = has_wall_north(pos);
+    walls[1] = has_wall_east(pos);
+    walls[2] = has_wall_south(pos);
+    walls[3] = has_wall_west(pos);
+    return walls;
+  }
+
+ private:
+  int pos2idx(const ValidPosition& pos) const {
+    return num_cols() * pos.row() + pos.col();
+  }
+};
 
 sf::FloatRect ComputeAspectPreservingViewport(const sf::Vector2u& screen_size) {
   if (screen_size.x >= screen_size.y) {
@@ -40,7 +109,7 @@ outcome::result<void> Main(
   // Use the default logger (stdout, multi-threaded, colored)
   spdlog::info("Hello, {}!", "World");
 
-  sf::RenderWindow window(sf::VideoMode(1024, 768), "ImGui + SFML = <3");
+  sf::RenderWindow window(sf::VideoMode(1024, 768), "MazeWalker");
   window.setFramerateLimit(60);
   ImGui::SFML::Init(window);
 
@@ -106,11 +175,11 @@ outcome::result<void> Main(
 
   return outcome::success();
 }
-}  // namespace game
+}  // namespace maze_walker
 
 int main(int argc, const char** argv) {
   std::vector<std::string> args = {argv, argv + argc};
   spdlog::info("args[0]:{}", args[0]);
-  auto result = game::Main(args);
+  auto result = maze_walker::Main(args);
   return result ? 0 : 1;
 }

@@ -1,0 +1,16 @@
+syntax = "proto3";
+package maze_walker;
+
+message SquareRectangularMazeData {
+  int32 num_rows = 1;
+  int32 num_cols = 2;
+
+  message CellWalls {
+    bool north = 1;
+    bool east = 2;
+    bool south = 3;
+    bool west = 4;
+  }
+
+  repeated CellWalls walls = 3;
+}

@@ -33,7 +33,9 @@ option(ENABLE_TESTING "Enable Test Builds" ON)
 # before loading Conan
 
 set(CONAN_EXTRA_REQUIRES ${CONAN_EXTRA_REQUIRES}
-                         imgui-sfml/2.1@bincrafters/stable)
+  imgui-sfml/2.1@bincrafters/stable
+  #protobuf/3.9.1@bincrafters/stable
+  )
 
 # set(CONAN_EXTRA_OPTIONS ${CONAN_EXTRA_OPTIONS} sfml:shared=False
 # sfml:graphics=True sfml:audio=False sfml:window=True
