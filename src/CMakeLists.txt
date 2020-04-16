@@ -34,5 +34,8 @@ target_include_directories(square_rectangular_maze_proto
   PRIVATE ${Protobuf_INCLUDE_DIRS})
 target_link_libraries(square_rectangular_maze_proto ${Protobuf_LIBRARIES})
 
-#  configure_file(${CMAKE_SOURCE_DIR}/assets/cross.png ${CMAKE_BINARY_DIR}/assets/cross.png COPYONLY)
+configure_file(
+  ${CMAKE_SOURCE_DIR}/assets/roadTextures.png
+  ${CMAKE_BINARY_DIR}/assets/roadTextures.png
+  COPYONLY)
 #  configure_file(${CMAKE_SOURCE_DIR}/assets/circle.png ${CMAKE_BINARY_DIR}/assets/circle.png COPYONLY)
