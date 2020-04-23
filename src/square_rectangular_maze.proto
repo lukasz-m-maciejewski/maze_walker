@@ -6,10 +6,10 @@ message SquareRectangularMazeData {
   int32 num_cols = 2;
 
   message CellWalls {
-    bool north = 1;
-    bool east = 2;
-    bool south = 3;
-    bool west = 4;
+    bool n = 1;
+    bool e = 2;
+    bool s = 3;
+    bool w = 4;
   }
 
   repeated CellWalls walls = 3;

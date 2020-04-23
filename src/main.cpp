@@ -1,4 +1,6 @@
 #include <docopt/docopt.h>
+#include <google/protobuf/message.h>
+#include <google/protobuf/text_format.h>
 #include <imgui-SFML.h>
 #include <imgui.h>
 #include <spdlog/spdlog.h>
@@ -16,8 +18,10 @@
 #include <tuple>
 #include <vector>
 
+#include "grid.hpp"
 #include "solarized.hpp"
 #include "square_rectangular_maze.pb.h"
+#include "mazegen_growing_tree.hpp"
 
 namespace outcome = OUTCOME_V2_NAMESPACE;
 namespace fs = std::filesystem;
@@ -59,10 +63,24 @@ class SquareRectangularMaze {
 
     for (int i = 0; i < num_cols * num_rows; ++i) {
       auto wall = data.add_walls();
-      wall->set_north(false);
-      wall->set_east(false);
-      wall->set_south(false);
-      wall->set_west(false);
+      wall->set_n(false);
+      wall->set_e(false);
+      wall->set_s(false);
+      wall->set_w(false);
+    }
+
+    SquareRectangularMaze maze;
+    maze.data_ = std::move(data);
+    return outcome::success(std::move(maze));
+  }
+
+  static outcome::result<SquareRectangularMaze> Make(
+      SquareRectangularMazeData data) {
+    if (data.num_cols() <= 0 || data.num_rows() <= 0) {
+      return outcome::failure(std::errc::invalid_argument);
+    }
+    if (data.walls_size() != data.num_cols() * data.num_rows()) {
+      return outcome::failure(std::errc::invalid_argument);
     }
 
     SquareRectangularMaze maze;
@@ -101,28 +119,28 @@ class SquareRectangularMaze {
     if (pos.row() == 0) {
       return true;
     }
-    return data_.walls(pos2idx(pos)).north();
+    return data_.walls(pos2idx(pos)).n();
   }
 
   bool has_wall_east(const ValidPosition& pos) const {
     if (pos.col() == num_cols() - 1) {
       return true;
     }
-    return data_.walls(pos2idx(pos)).east();
+    return data_.walls(pos2idx(pos)).e();
   }
 
   bool has_wall_south(const ValidPosition& pos) const {
     if (pos.row() == num_rows() - 1) {
       return true;
     }
-    return data_.walls(pos2idx(pos)).south();
+    return data_.walls(pos2idx(pos)).s();
   }
 
   bool has_wall_west(const ValidPosition& pos) const {
     if (pos.col() == 0) {
       return true;
     }
-    return data_.walls(pos2idx(pos)).west();
+    return data_.walls(pos2idx(pos)).w();
   }
 
   std::bitset<4> walls(const ValidPosition& pos) const {
@@ -152,19 +170,19 @@ class TilesLibrary {
     tl.texture_.loadFromFile(path_to_texture.string());
 
     std::vector<std::pair<int, int>> offsets = {
-        {1, 3},  // 0 - all open
-        {3, 3},  // 1 - N
-        {3, 2},  // 2 - E
-        {8, 0},  // 3 - NE
-        {2, 3},  // 4 - S
-        {1, 0},  // 5 - NS
-        {8, 1},  // 6 - SE
+        {9, 0},  // 0 - all open
+        {5, 3},  // 1 - N
+        {5, 2},  // 2 - E
+        {6, 0},  // 3 - NE
+        {4, 3},  // 4 - S
+        {0, 1},  // 5 - NS
+        {6, 1},  // 6 - SE
         {9, 3},  // 7 - NES
-        {2, 2},  // 8 - W
-        {7, 0},  // 9 - NW
+        {4, 2},  // 8 - W
+        {5, 0},  // 9 - NW
         {0, 0},  // 10 - EW
         {8, 2},  // 11 - NEW
-        {7, 1},  // 12 - SW
+        {5, 1},  // 12 - SW
         {8, 3},  // 13 - NSW
         {9, 2},  // 14 - ESW
         {0, 2},  // 15 - NESW
@@ -231,6 +249,22 @@ outcome::result<void> Draw(sf::RenderTarget& target, const TilesLibrary& tl,
   return outcome::success();
 }
 
+constexpr auto sample_maze = R"proto(
+  num_rows: 3
+  num_cols: 3
+  walls: { n: true e: true s: false w: true }
+  walls: { n: true e: false s: false w: true }
+  walls: { n: true e: true s: false w: false }
+
+  walls: { n: false e: true s: false w: true }
+  walls: { n: false e: true s: true w: true }
+  walls: { n: false e: true s: false w: true }
+
+  walls: { n: false e: false s: true w: true }
+  walls: { n: true e: false s: true w: false }
+  walls: { n: false e: true s: true w: false }
+)proto";
+
 outcome::result<void> Main(const std::vector<std::string>& args) {
   const Configuration config =
       OUTCOME_TRYX(MakeConfiguration(args, fs::current_path()));
@@ -239,8 +273,12 @@ outcome::result<void> Main(const std::vector<std::string>& args) {
   const TilesLibrary tiles_library =
       OUTCOME_TRYX(TilesLibrary::Make(road_textures_filepath));
 
+
+  std::vector<SquareRectangularMazeData> data = OUTCOME_TRYX(GenerateMazeWithSteps(15, 20));
+  // google::protobuf::TextFormat::ParseFromString(sample_maze, &data);
+  auto display_iter = data.begin();
   SquareRectangularMaze maze =
-      OUTCOME_TRYX(SquareRectangularMaze::Make(10, 10));
+      OUTCOME_TRYX(SquareRectangularMaze::Make(*display_iter));
 
   sf::RenderWindow window(sf::VideoMode(1024, 768), "MazeWalker");
   window.setFramerateLimit(60);
@@ -278,7 +316,11 @@ outcome::result<void> Main(const std::vector<std::string>& args) {
         [[maybe_unused]] const sf::Vector2f mouse_pos_world =
             window.mapPixelToCoords(sf::Mouse::getPosition(window));
 
-        spdlog::info("click at ({}, {})", mouse_pos_world.x, mouse_pos_world.y);
+        // spdlog::info("click at ({}, {})", mouse_pos_world.x, mouse_pos_world.y);
+        if (std::next(display_iter) != data.end()) {
+          std::advance(display_iter, 1);
+          maze = OUTCOME_TRYX(SquareRectangularMaze::Make(*display_iter));
+        }
       }
     }
 
