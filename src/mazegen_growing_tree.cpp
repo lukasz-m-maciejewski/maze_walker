@@ -210,8 +210,8 @@ outcome::result<SquareRectangularMazeData> GenerateMaze(int num_cols,
   return grid_to_maze(grid);
 }
 
-outcome::result<std::vector<SquareRectangularMazeData>> GenerateMazeWithSteps(int num_cols,
-                                                             int num_rows) {
+outcome::result<std::vector<SquareRectangularMazeData>> GenerateMazeWithSteps(
+    int num_cols, int num_rows) {
   util::Grid<Cell> grid =
       OUTCOME_TRYX(util::Grid<Cell>::Make(num_cols, num_rows, Cell{}));
 
